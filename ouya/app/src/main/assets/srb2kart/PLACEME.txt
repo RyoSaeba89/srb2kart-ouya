@@ -1,0 +1,2 @@
+Drop SRB2Kart v1.x data here: srb2.srb, gfx.kart, textures.kart, chars.kart, sounds.kart, music.kart, maps.kart, patch.kart
+These are freely redistributable (free fangame). They are extracted to the app external files dir on first launch (SRB2WADDIR).

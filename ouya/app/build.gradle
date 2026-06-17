@@ -1,0 +1,77 @@
+apply plugin: 'com.android.application'
+
+def platformVersion = 16      // OUYA = Android API 16 (Jelly Bean), Tegra 3, GLES2 only
+// def platformVersion = 24    // openGLES 3.2 min api level (original)
+// def platformVersion = 18    //openGLES 3 min api level
+// def platformVersion = 12    //openGLES 2 min api level
+
+android {
+    compileSdkVersion 30
+    ndkVersion '23.2.8568313'   // last NDK supporting android-16 on armeabi-v7a
+
+    defaultConfig {
+        applicationId 'org.srb2kart.ouya'
+        minSdkVersion "${platformVersion}"
+        targetSdkVersion 30
+        versionName '1.0-m2-audio-net'
+        versionCode 3     // OUYA: bump on every asset/config change so AssetExporter re-exports
+        // NOTE: libmain.so is built standalone via CMake/ninja and staged into
+        // src/main/jniLibs (see android/app/src/main/cpp/CMakeLists.txt + build_native.bat).
+        // AGP 7.0.2's externalNativeBuild .so copy (FileUtils.isSameFile) is broken on this
+        // Windows host, so we package the prebuilt jniLibs directly instead.
+        ndk {
+            // Specifies the ABI configurations of your native
+            // libraries Gradle should build and package with your APK.
+            abiFilters 'armeabi-v7a'
+        }
+    }
+    // OUYA release signing. Credentials live in source/android/keystore.properties (gitignored, not in VCS).
+    // If that file is absent (e.g. a fresh clone without the key) the release build falls back to the debug
+    // signing key below so the repo still builds - it just won't be signed with the official OUYA key.
+    signingConfigs {
+        release {
+            def kpFile = rootProject.file('keystore.properties')
+            if (kpFile.exists()) {
+                def kp = new Properties()
+                kp.load(new FileInputStream(kpFile))
+                storeFile rootProject.file(kp['storeFile'])
+                storePassword kp['storePassword']
+                keyAlias kp['keyAlias']
+                keyPassword kp['keyPassword']
+            }
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled = false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'),
+                          'proguard-rules.pro'
+
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
+
+            signingConfig rootProject.file('keystore.properties').exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+    packagingOptions {
+        // it is not sure yet if we really need this doNotStrip option to keep the debug symbols
+        // it seems to add 10+ mb of extra space to the bundle.
+        // https://medium.com/@juliozynger/native-code-and-debug-symbols-954c31c0bc2e
+        doNotStrip '**.so'
+    }
+    aaptOptions {
+        // SRB2Kart WADs (srb2.srb, *.kart) are already dense lump archives.
+        // Storing them uncompressed avoids a slow, pointless re-compress pass at
+        // build time and lets the engine/AssetExporter stream them straight out.
+        noCompress 'srb', 'kart', 'dat'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    // SDLActivity extends android.app.Activity directly; no appcompat / play-core needed.
+}
