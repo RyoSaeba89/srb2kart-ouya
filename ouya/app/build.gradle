@@ -10,11 +10,11 @@ android {
     ndkVersion '23.2.8568313'   // last NDK supporting android-16 on armeabi-v7a
 
     defaultConfig {
-        applicationId 'org.srb2kartouya'
+        applicationId 'com.ryo.srb2kartouya'
         minSdkVersion "${platformVersion}"
         targetSdkVersion 30
         versionName '1.0-m2-audio-net'
-        versionCode 4     // OUYA: bump on every asset/config change so AssetExporter re-exports (v4 = applicationId rename to org.srb2kartouya)
+        versionCode 5     // OUYA: bump on every asset/config change so AssetExporter re-exports (v4 = org.srb2kartouya; v5 = applicationId rename to com.ryo.srb2kartouya)
         // NOTE: libmain.so is built standalone via CMake/ninja and staged into
         // src/main/jniLibs (see android/app/src/main/cpp/CMakeLists.txt + build_native.bat).
         // AGP 7.0.2's externalNativeBuild .so copy (FileUtils.isSameFile) is broken on this
