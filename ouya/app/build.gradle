@@ -14,7 +14,7 @@ android {
         minSdkVersion "${platformVersion}"
         targetSdkVersion 30
         versionName '1.0-m2-audio-net'
-        versionCode 5     // OUYA: bump on every asset/config change so AssetExporter re-exports (v4 = org.srb2kartouya; v5 = applicationId rename to com.ryo.srb2kartouya)
+        versionCode 6     // OUYA: bump on every asset/config change so AssetExporter re-exports (v4 = org.srb2kartouya; v5 = applicationId rename to com.ryo.srb2kartouya; v6 = keep literal res paths so the store can extract ouya_icon.png)
         // NOTE: libmain.so is built standalone via CMake/ninja and staged into
         // src/main/jniLibs (see android/app/src/main/cpp/CMakeLists.txt + build_native.bat).
         // AGP 7.0.2's externalNativeBuild .so copy (FileUtils.isSameFile) is broken on this
