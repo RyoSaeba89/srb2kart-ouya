@@ -1291,17 +1291,35 @@ boolean InputDown(INT32 gc, UINT8 p)
 
 INT32 JoyAxis(axis_input_e axissel, UINT8 p)
 {
+	INT32 retaxis;
+
 	switch (p)
 	{
 		case 2:
-			return Joy2Axis(axissel);
+			retaxis = Joy2Axis(axissel);
+			break;
 		case 3:
-			return Joy3Axis(axissel);
+			retaxis = Joy3Axis(axissel);
+			break;
 		case 4:
-			return Joy4Axis(axissel);
+			retaxis = Joy4Axis(axissel);
+			break;
 		default:
-			return Joy1Axis(axissel);
+			retaxis = Joy1Axis(axissel);
+			break;
 	}
+
+#ifdef __ANDROID__
+	// Axes past AXISDEAD (fire/drift/lookback) get no deadzone, and
+	// G_BuildTiccmd treats ANY value > 0 as the button held. The OUYA pad's
+	// triggers don't rest at exactly zero, so the fire axis reads as
+	// permanently held, PF_ATTACKDOWN stays latched and the item button goes
+	// dead. Require at least a half-press before these axes count.
+	if (axissel > AXISDEAD && abs(retaxis) < JOYAXISRANGE/2)
+		return 0;
+#endif
+
+	return retaxis;
 }
 
 //

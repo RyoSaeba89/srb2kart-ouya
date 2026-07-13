@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- LAN play: receive UDP broadcasts (MulticastLock) + keep wifi awake -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <application
         android:allowBackup="true"
@@ -17,12 +21,12 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+        <!-- Launcher: first-run data install with a progress bar, then
+             forwards to the game activity. -->
         <activity
-            android:name=".SRB2KartActivity"
-            android:alwaysRetainTaskState="true"
+            android:name=".InstallActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:label="@string/app_name"
-            android:launchMode="singleInstance"
             android:screenOrientation="landscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -30,6 +34,14 @@
                 <!-- OUYA: makes the side-loaded APK appear in the OUYA "play" games menu -->
                 <category android:name="tv.ouya.intent.category.GAME" />
             </intent-filter>
+        </activity>
+        <activity
+            android:name=".SRB2KartActivity"
+            android:alwaysRetainTaskState="true"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:label="@string/app_name"
+            android:launchMode="singleInstance"
+            android:screenOrientation="landscape">
         </activity>
     </application>
 </manifest>

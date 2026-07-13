@@ -166,6 +166,10 @@ HMS_connect (const char *format, ...)
 			curl_easy_setopt(curl, CURLOPT_CAINFO, ca_path);
 		}
 	}
+	// Always trace curl on the Ouya: stderr is redirected to srb2log.txt
+	// (srb2k_android.c), and a TLS/DNS failure on the console is otherwise
+	// invisible - the menu just says it couldn't contact the master server.
+	curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
 #endif
 
 	if (cv_masterserver_token.string && cv_masterserver_token.string[0])
@@ -249,6 +253,29 @@ HMS_do (struct HMS_buffer *buffer)
 	char *p;
 
 	cc = curl_easy_perform(buffer->curl);
+
+#ifdef __ANDROID__
+	// TLS verification on the Ouya can fail for reasons outside the game's
+	// control: the console's clock drifts (certificates read as "not yet
+	// valid") and the CA bundle shipped in the assets ages. The master server
+	// only hands out a public server list, so degrade to an unverified HTTPS
+	// connection instead of losing the browser - but say so in the log.
+	if (cc == CURLE_SSL_CONNECT_ERROR
+		|| cc == CURLE_PEER_FAILED_VERIFICATION
+		|| cc == CURLE_SSL_CERTPROBLEM
+		|| cc == CURLE_SSL_CIPHER
+		|| cc == CURLE_SSL_CACERT_BADFILE
+		|| cc == CURLE_SSL_ISSUER_ERROR)
+	{
+		CONS_Alert(CONS_WARNING,
+				"Master server TLS verification failed (%s); retrying without certificate verification.\n",
+				curl_easy_strerror(cc));
+		curl_easy_setopt(buffer->curl, CURLOPT_SSL_VERIFYPEER, 0L);
+		curl_easy_setopt(buffer->curl, CURLOPT_SSL_VERIFYHOST, 0L);
+		buffer->needle = 0;
+		cc = curl_easy_perform(buffer->curl);
+	}
+#endif
 
 	if (cc != CURLE_OK)
 	{

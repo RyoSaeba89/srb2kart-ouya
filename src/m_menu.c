@@ -399,6 +399,7 @@ static void M_HandleImageDef(INT32 choice);
 static void M_HandleLevelStats(INT32 choice);
 #ifndef NONET
 static void M_HandleConnectIP(INT32 choice);
+static void M_ConnectLAN(INT32 choice);
 #endif
 static void M_HandleSetupMultiPlayer(INT32 choice);
 static void M_HandleVideoMode(INT32 choice);
@@ -1013,9 +1014,11 @@ static menuitem_t MP_MainMenu[] =
 #ifndef NONET
 	{IT_STRING|IT_CALL,       NULL, "Internet server browser...",M_PreConnectMenu,   142-24},
 	{IT_STRING|IT_KEYHANDLER, NULL, "Specify IPv4 address:",     M_HandleConnectIP,        150-24},
+	{IT_STRING|IT_CALL,       NULL, "Search local network...",   M_ConnectLAN,             158-24},
 #else
 	{IT_GRAYEDOUT,            NULL, "Internet server browser...",NULL,                     142-24},
 	{IT_GRAYEDOUT,            NULL, "Specify IPv4 address:",     NULL,                     150-24},
+	{IT_GRAYEDOUT,            NULL, "Search local network...",   NULL,                     158-24},
 #endif
 	//{IT_HEADER, NULL, "Player setup", NULL, 80},
 	//{IT_STRING|IT_CALL,       NULL, "Name, character, color...", M_SetupMultiPlayer,       90},
@@ -9587,7 +9590,64 @@ static void M_HandleConnectIP(INT32 choice)
 			M_ClearMenus(true);
 	}
 }
+
+// Broadcast for a host on the local network ("connect any"). Typing an IP is
+// painful on a gamepad and the master-server route needs internet + NAT
+// hairpinning, so LAN games get a one-press join.
+static void M_ConnectLAN(INT32 choice)
+{
+	(void)choice;
+
+	M_ClearMenus(true);
+
+	COM_BufAddText("connect any\n");
+
+	// A little "please wait" message.
+	M_DrawTextBox(56, BASEVIDHEIGHT/2-12, 24, 2);
+	V_DrawCenteredString(BASEVIDWIDTH/2, BASEVIDHEIGHT/2, 0, "Searching for a LAN server...");
+	I_OsPolling();
+	I_UpdateNoBlit();
+	if (rendermode == render_soft)
+		I_FinishUpdate(); // page flip or blit buffer
+}
 #endif //!NONET
+
+#ifdef __ANDROID__
+// Ouya: polled every frame by the SDL layer (i_video.c) to decide when to
+// summon the soft keyboard. SRB2's text fields take keystrokes the moment
+// they are highlighted, with no explicit edit mode, so "wants a keyboard" ==
+// "the highlighted item consumes typed characters" (player name, IP address,
+// any string cvar) or the chat box is open.
+boolean M_TextInputWanted(void)
+{
+	const menuitem_t *mi;
+
+	if (chat_on)
+		return true;
+
+	if (!menuactive || !currentMenu)
+		return false;
+
+	mi = &currentMenu->menuitems[itemOn];
+
+	if ((mi->status & IT_TYPE) == IT_CVAR
+		&& (mi->status & IT_CVARTYPE) == IT_CV_STRING)
+		return true;
+
+	if ((mi->status & IT_TYPE) == IT_KEYHANDLER)
+	{
+#ifndef NONET
+		if (mi->itemaction == M_HandleConnectIP)
+			return true;
+#endif
+		// Only the "Name" row of the player setup menu takes text.
+		if (mi->itemaction == M_HandleSetupMultiPlayer && itemOn == 0)
+			return true;
+	}
+
+	return false;
+}
+#endif
 
 // ========================
 // MULTIPLAYER PLAYER SETUP

@@ -440,6 +440,15 @@ static INT32 Impl_SDL_Scancode_To_Keycode(SDL_Scancode code)
 		case SDL_SCANCODE_RALT:   return KEY_RALT;
 		case SDL_SCANCODE_LGUI:   return KEY_LEFTWIN;
 		case SDL_SCANCODE_RGUI:   return KEY_RIGHTWIN;
+
+#ifdef __ANDROID__
+		// OUYA: the system (double-tap) button arrives as KEYCODE_MENU and
+		// the soft keyboard's dismiss as AC_BACK; both should act like Esc so
+		// the in-game menu is reachable from the pad.
+		case SDL_SCANCODE_MENU:    return KEY_ESCAPE;
+		case SDL_SCANCODE_AC_BACK: return KEY_ESCAPE;
+#endif
+
 		default:                  break;
 	}
 	return 0;
@@ -974,6 +983,26 @@ static void Impl_HandleControllerButtonEvent(SDL_ControllerButtonEvent evt, Uint
 	event_t event;
 	SDL_JoystickID joyid[4];
 
+#ifdef __ANDROID__
+	// OUYA: the pad has no Esc-like key, so a race can never be left. Map the
+	// right-stick click (unbound by default) to Esc: opens/backs out of menus
+	// and brings up the in-game menu to retire from a race. Same convention
+	// as the other Ouya ports (R3 = menu).
+	if (evt.button == SDL_CONTROLLER_BUTTON_RIGHTSTICK)
+	{
+		if (type == SDL_CONTROLLERBUTTONDOWN)
+			event.type = ev_keydown;
+		else if (type == SDL_CONTROLLERBUTTONUP)
+			event.type = ev_keyup;
+		else
+			return;
+		event.data1 = KEY_ESCAPE;
+		event.data2 = event.data3 = 0;
+		D_PostEvent(&event);
+		return;
+	}
+#endif
+
 	// Determine the Joystick IDs for each current open joystick
 	joyid[0] = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(JoyInfo.dev));
 	joyid[1] = SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(JoyInfo2.dev));
@@ -1027,6 +1056,52 @@ static void Impl_HandleControllerButtonEvent(SDL_ControllerButtonEvent evt, Uint
 
 
 
+#ifdef __ANDROID__
+// m_menu.c: true while the highlighted menu item takes typed text (player
+// name, IP address, any string cvar) or the chat box is open.
+boolean M_TextInputWanted(void);
+
+// Summon/dismiss the OUYA soft keyboard to match the menu state. SRB2's text
+// fields read keystrokes without any explicit "start typing" action, so poll
+// every frame and toggle SDL's text-input mode on the transitions
+// (SDL_StartTextInput shows the IME on Android, SDL_StopTextInput hides it).
+static void Impl_UpdateTextInputMode(void)
+{
+	static boolean wanted = false;
+	boolean want = M_TextInputWanted();
+
+	if (want == wanted)
+		return;
+	wanted = want;
+	if (want)
+		SDL_StartTextInput();
+	else
+		SDL_StopTextInput();
+}
+
+// Soft-keyboard characters arrive as SDL_TEXTINPUT (commitText), not as key
+// events. Feed each printable ASCII char through the normal key-event path;
+// the menu string handlers and the chat take the character from data1.
+static void Impl_HandleTextInputEvent(const SDL_TextInputEvent *evt)
+{
+	event_t event;
+	int i;
+
+	for (i = 0; evt->text[i]; i++)
+	{
+		char c = evt->text[i];
+		if (c < 32 || c > 126) // printable ASCII only; drops UTF-8 tails too
+			continue;
+		event.data1 = (INT32)(unsigned char)c;
+		event.data2 = event.data3 = 0;
+		event.type = ev_keydown;
+		D_PostEvent(&event);
+		event.type = ev_keyup;
+		D_PostEvent(&event);
+	}
+}
+#endif
+
 void I_GetEvent(void)
 {
 	SDL_Event evt;
@@ -1041,8 +1116,23 @@ void I_GetEvent(void)
 
 	mousemovex = mousemovey = 0;
 
+#ifdef __ANDROID__
+	Impl_UpdateTextInputMode();
+#endif
+
 	while (SDL_PollEvent(&evt))
 	{
+#ifdef __ANDROID__
+		// While the soft keyboard is up the pad drives the IME, but SDL still
+		// receives the controller events: the d-pad would navigate the menu
+		// behind the keyboard while picking letters. Swallow pad input until
+		// the keyboard is dismissed (same leak/fix as the Armagetron port).
+		if ((evt.type == SDL_CONTROLLERAXISMOTION
+			|| evt.type == SDL_CONTROLLERBUTTONUP
+			|| evt.type == SDL_CONTROLLERBUTTONDOWN)
+			&& SDL_IsScreenKeyboardShown(window))
+			continue;
+#endif
 		switch (evt.type)
 		{
 			case SDL_WINDOWEVENT:
@@ -1076,6 +1166,12 @@ void I_GetEvent(void)
 			case SDL_CONTROLLERBUTTONDOWN:
 				Impl_HandleControllerButtonEvent(evt.cbutton, evt.type);
 				break;
+
+#ifdef __ANDROID__
+			case SDL_TEXTINPUT:
+				Impl_HandleTextInputEvent(&evt.text);
+				break;
+#endif
 
 			////////////////////////////////////////////////////////////
 
