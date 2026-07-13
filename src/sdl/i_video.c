@@ -753,6 +753,12 @@ static void Impl_HandleWindowEvent(SDL_WindowEvent evt)
 
 }
 
+#ifdef __ANDROID__
+// Set by Impl_UpdateTextInputMode (below): a menu text field or the chat is
+// taking typed characters right now.
+static boolean textinput_wanted = false;
+#endif
+
 static void Impl_HandleKeyboardEvent(SDL_KeyboardEvent evt, Uint32 type)
 {
 	event_t event;
@@ -769,6 +775,14 @@ static void Impl_HandleKeyboardEvent(SDL_KeyboardEvent evt, Uint32 type)
 		return;
 	}
 	event.data1 = Impl_SDL_Scancode_To_Keycode(evt.keysym.scancode);
+#ifdef __ANDROID__
+	// While a text field is active every printable character already arrives
+	// through SDL_TEXTINPUT; dropping the scancode copy avoids doubled
+	// letters when a key event fires too (USB keyboards, adb input).
+	// Non-printables (Enter, Backspace 127, arrows) still pass.
+	if (textinput_wanted && event.data1 >= 32 && event.data1 <= 126)
+		return;
+#endif
 	if (event.data1) D_PostEvent(&event);
 }
 
@@ -1067,12 +1081,11 @@ boolean M_TextInputWanted(void);
 // (SDL_StartTextInput shows the IME on Android, SDL_StopTextInput hides it).
 static void Impl_UpdateTextInputMode(void)
 {
-	static boolean wanted = false;
 	boolean want = M_TextInputWanted();
 
-	if (want == wanted)
+	if (want == textinput_wanted)
 		return;
-	wanted = want;
+	textinput_wanted = want;
 	if (want)
 		SDL_StartTextInput();
 	else
@@ -1127,7 +1140,10 @@ void I_GetEvent(void)
 		// receives the controller events: the d-pad would navigate the menu
 		// behind the keyboard while picking letters. Swallow pad input until
 		// the keyboard is dismissed (same leak/fix as the Armagetron port).
-		if ((evt.type == SDL_CONTROLLERAXISMOTION
+		// textinput_wanted gates the SDL_IsScreenKeyboardShown JNI call: it
+		// would otherwise run for every stick-motion event during a race.
+		if (textinput_wanted
+			&& (evt.type == SDL_CONTROLLERAXISMOTION
 			|| evt.type == SDL_CONTROLLERBUTTONUP
 			|| evt.type == SDL_CONTROLLERBUTTONDOWN)
 			&& SDL_IsScreenKeyboardShown(window))

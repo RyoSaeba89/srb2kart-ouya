@@ -1013,12 +1013,16 @@ static menuitem_t MP_MainMenu[] =
 	{IT_HEADER, NULL, "Join a game", NULL, 132-24},
 #ifndef NONET
 	{IT_STRING|IT_CALL,       NULL, "Internet server browser...",M_PreConnectMenu,   142-24},
-	{IT_STRING|IT_KEYHANDLER, NULL, "Specify IPv4 address:",     M_HandleConnectIP,        150-24},
-	{IT_STRING|IT_CALL,       NULL, "Search local network...",   M_ConnectLAN,             158-24},
+	// LAN search sits BEFORE the IP field: highlighting the IP field pops the
+	// soft keyboard on the Ouya, which then eats the d-pad - the IP row must
+	// stay last so other items remain reachable. M_DrawMPMainMenu hardcodes
+	// the IP row as item 9.
+	{IT_STRING|IT_CALL,       NULL, "Search local network...",   M_ConnectLAN,             150-24},
+	{IT_STRING|IT_KEYHANDLER, NULL, "Specify IPv4 address:",     M_HandleConnectIP,        158-24},
 #else
 	{IT_GRAYEDOUT,            NULL, "Internet server browser...",NULL,                     142-24},
-	{IT_GRAYEDOUT,            NULL, "Specify IPv4 address:",     NULL,                     150-24},
-	{IT_GRAYEDOUT,            NULL, "Search local network...",   NULL,                     158-24},
+	{IT_GRAYEDOUT,            NULL, "Search local network...",   NULL,                     150-24},
+	{IT_GRAYEDOUT,            NULL, "Specify IPv4 address:",     NULL,                     158-24},
 #endif
 	//{IT_HEADER, NULL, "Player setup", NULL, 80},
 	//{IT_STRING|IT_CALL,       NULL, "Name, character, color...", M_SetupMultiPlayer,       90},
@@ -9337,7 +9341,7 @@ Update the maxplayers label...
 		);
 
 #ifndef NONET
-	y += MP_MainMenu[8].alphaKey;
+	y += MP_MainMenu[9].alphaKey;
 
 	V_DrawFill(x+5, y+4+5, /*16*8 + 6,*/ BASEVIDWIDTH - 2*(x+5), 8+6, 239);
 
@@ -9345,7 +9349,7 @@ Update the maxplayers label...
 	V_DrawString(x+8,y+12, V_ALLOWLOWERCASE, setupm_ip);
 
 	// draw text cursor for name
-	if (itemOn == 8
+	if (itemOn == 9
 	    && skullAnimCounter < 4)   //blink cursor
 		V_DrawCharacter(x+8+V_StringWidth(setupm_ip, V_ALLOWLOWERCASE),y+12,'_',false);
 #endif

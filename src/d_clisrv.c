@@ -2646,6 +2646,10 @@ static void CL_ConnectToServer(void)
 
 	cl_mode = CL_SEARCHING;
 
+#ifdef __ANDROID__
+	I_OutputMsg("CONNDBG: CL_ConnectToServer enter, servernode=%d\n", servernode);
+#endif
+
 #ifdef CLIENT_LOADINGSCREEN
 	lastfilenum = -1;
 #endif
@@ -3066,6 +3070,10 @@ static void Command_connect(void)
 			netgame = true;
 			multiplayer = true;
 
+#ifdef __ANDROID__
+			I_OutputMsg("CONNDBG: socket open, connecting to '%s'\n", COM_Argv(1));
+#endif
+
 			if (!stricmp(COM_Argv(1), "any"))
 				servernode = BROADCASTADDR;
 			else if (I_NetMakeNodewPort && COM_Argc() >= 3)
@@ -3078,6 +3086,10 @@ static void Command_connect(void)
 				D_CloseConnection();
 				return;
 			}
+
+#ifdef __ANDROID__
+			I_OutputMsg("CONNDBG: servernode=%d\n", servernode);
+#endif
 		}
 		else
 			CONS_Alert(CONS_ERROR, M_GetText("There is no network driver\n"));

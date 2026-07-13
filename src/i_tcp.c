@@ -1484,12 +1484,18 @@ static boolean SOCK_GetAddr(struct sockaddr_in *sin, const char *address, const 
 	{
 		while (runp != NULL)
 		{
-			if (sendto(mysockets[0], NULL, 0, 0, runp->ai_addr, runp->ai_addrlen) == 0)
+			if (runp->ai_family == AF_INET
+				&& sendto(mysockets[0], NULL, 0, 0, runp->ai_addr, runp->ai_addrlen) == 0)
 				break;
 
 			runp = runp->ai_next;
 		}
 	}
+
+	// sin is a sockaddr_in: never memcpy a larger (AF_INET6) result over it
+	while (runp != NULL && (runp->ai_family != AF_INET
+		|| runp->ai_addrlen > sizeof (*sin)))
+		runp = runp->ai_next;
 
 	if (runp != NULL)
 		memcpy(sin, runp->ai_addr, runp->ai_addrlen);
